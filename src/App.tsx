@@ -236,7 +236,7 @@ export default function App() {
           autoPlay
           playsInline
           width="200"
-          muted={!audioActive}
+          muted
           height="100"
           className="border border-black rounded-2xl"
         />{" "}
@@ -245,7 +245,6 @@ export default function App() {
           autoPlay
           playsInline
           width="200"
-          muted
           height="100"
           className="border border-black rounded-2xl"
         />
