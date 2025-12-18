@@ -11,34 +11,34 @@ export default function App() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
-  const createPeerConnection = () => {
-    const pc = new RTCPeerConnection(config);
+  // const createPeerConnection = () => {
+  //   const pc = new RTCPeerConnection(config);
 
-    pc.onicecandidate = (e) => {
-      if (e.candidate) {
-        socket.emit("ice-candidate", {
-          room,
-          candidate: e.candidate,
-        });
-      }
-    };
+  //   pc.onicecandidate = (e) => {
+  //     if (e.candidate) {
+  //       socket.emit("ice-candidate", {
+  //         room,
+  //         candidate: e.candidate,
+  //       });
+  //     }
+  //   };
 
-    pc.ontrack = (event) => {
-      if (remoteVideoRef.current) {
-        remoteVideoRef.current.srcObject = event.streams[0];
-      }
-    };
+  //   pc.ontrack = (event) => {
+  //     if (remoteVideoRef.current) {
+  //       remoteVideoRef.current.srcObject = event.streams[0];
+  //     }
+  //   };
 
-    pc.onsignalingstatechange = () =>
-      console.log("signaling:", pc.signalingState);
+  //   pc.onsignalingstatechange = () =>
+  //     console.log("signaling:", pc.signalingState);
 
-    pc.oniceconnectionstatechange = () =>
-      console.log("ice:", pc.iceConnectionState);
+  //   pc.oniceconnectionstatechange = () =>
+  //     console.log("ice:", pc.iceConnectionState);
 
-    pc.onconnectionstatechange = () => console.log("conn:", pc.connectionState);
+  //   pc.onconnectionstatechange = () => console.log("conn:", pc.connectionState);
 
-    return pc;
-  };
+  //   return pc;
+  // };
   const config = {
     iceServers: [
       {
@@ -48,13 +48,7 @@ export default function App() {
   };
 
   useEffect(() => {
-    const userJoinedFn = async ({
-      userId,
-      socketId,
-    }: {
-      userId: string;
-      socketId: string;
-    }) => {
+    const userJoinedFn = async ({ userId }: { userId: string }) => {
       console.log("User joined", userId);
       if (userId === id) return;
 
@@ -154,8 +148,6 @@ export default function App() {
 
       if (!pcRef.current) return;
 
-      // ❌ NO volver a setear onicecandidate acá
-
       await pcRef.current.setRemoteDescription(
         new RTCSessionDescription(answer)
       );
@@ -219,9 +211,13 @@ export default function App() {
   return (
     <>
       <div className="bg-gray-600 h-screen w-screen flex items-center justify-center">
-        <h1>{id}</h1>
-        <p>{audioActive.toString()}</p>
-        <p>{cameraActive.toString()}</p>
+        <div>
+          <input
+            type="text"
+            value={id || "a"}
+            onChange={(e) => setid(e.target.value)}
+          />
+        </div>
         {/* <button className="bg-green-500 px-1">iniciar conexion</button> */}
         <button
           onClick={() => mediaObj.pauseAudio(videoRef, setAudioActive)}
@@ -253,14 +249,22 @@ export default function App() {
           height="100"
           className="border border-black rounded-2xl"
         />
-        <button
-          onClick={() => {
-            socket.emit("join-room", { room: room, userId: id });
-          }}
-          className="bg-red-400 w-40 h-12"
-        >
-          Join room
-        </button>
+        <div className="bg-green-300">
+          <input
+            className="bg-green-700"
+            type="text"
+            value={room}
+            onChange={(e) => setRoom(e.target.value)}
+          />
+          <button
+            onClick={() => {
+              socket.emit("join-room", { room: room, userId: id });
+            }}
+            className="bg-red-400 w-40 h-12"
+          >
+            Join room
+          </button>
+        </div>
       </div>
     </>
   );
