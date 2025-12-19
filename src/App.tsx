@@ -1,12 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useImperativeHandle, useRef, useState } from "react";
 import { socket } from "./socket";
 import { mediaObj } from "./utils";
 import { Videos } from "./components/Videos";
+import { SetupScreen } from "./components/SetupScreen";
 export default function App() {
-  const [room, setRoom] = useState<string>("room1");
-  const [id, setid] = useState<string>(
-    `user${Math.round(Math.random() * 10000)}`
-  );
+  const [room, setRoom] = useState<string>("");
+  const [id, setid] = useState<string>("");
   const [cameraActive, setCameraActive] = useState<boolean>(true);
   const [audioActive, setAudioActive] = useState<boolean>(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -208,17 +207,12 @@ export default function App() {
       }
     };
   }, []);
-
+console.log({room,id})
   return (
     <>
-      <div className="bg-gray-600 h-screen w-screen flex items-center justify-center">
-        <div>
-          <input
-            type="text"
-            value={id || "a"}
-            onChange={(e) => setid(e.target.value)}
-          />
-        </div>
+      <div className="relative bg-gray-600 h-screen w-screen flex items-center justify-center overflow-x-hidden">
+      <SetupScreen setId={setid} setRoom={setRoom} /> 
+
         {/* <button className="bg-green-500 px-1">iniciar conexion</button> */}
         <button
           onClick={() => mediaObj.pauseAudio(videoRef, setAudioActive)}
@@ -232,31 +226,9 @@ export default function App() {
         >
           {cameraActive ? "Pausar" : "Iniciar"} camara
         </button>
-        <Videos localRef={videoRef} remoteRef={remoteVideoRef}/>
-        {/* <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          width="200"
-          muted
-          height="100"
-          className="border border-black rounded-2xl"
-        />{" "}
-        <video
-          ref={remoteVideoRef}
-          autoPlay
-          playsInline
-          width="200"
-          height="100"
-          className="border border-black rounded-2xl"
-        /> */}
+        <Videos localRef={videoRef} remoteRef={remoteVideoRef} />
+      
         <div className="bg-green-300">
-          <input
-            className="bg-green-700"
-            type="text"
-            value={room}
-            onChange={(e) => setRoom(e.target.value)}
-          />
           <button
             onClick={() => {
               socket.emit("join-room", { room: room, userId: id });
