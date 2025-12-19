@@ -1,4 +1,4 @@
-import { useEffect, useImperativeHandle, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { socket } from "./socket";
 import { mediaObj } from "./utils";
 import { Videos } from "./components/Videos";
@@ -46,7 +46,7 @@ export default function App() {
       },
     ],
   };
-
+  useEffect(() => console.log("room:", room), [room]);
   useEffect(() => {
     const userJoinedFn = async ({ userId }: { userId: string }) => {
       console.log("User joined", userId);
@@ -86,13 +86,15 @@ export default function App() {
         // 👉 offer
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
-
+        console.log("prev emit");
+        console.log({ room, offer });
         socket.emit("offer", { room, offer });
       }
     };
 
     const offerFn = async ({ offer, from }: { offer: any; from: any }) => {
-      console.log("offer recieved")
+      console.log("offer recieved");
+      console.log("offer from: ", from);
       if (!pcRef.current) {
         pcRef.current = new RTCPeerConnection(config);
       }
@@ -155,7 +157,7 @@ export default function App() {
     };
 
     const iceCandidateFn = ({ candidate }: { candidate: any }) => {
-      console.log("Ice cadidate function start")
+      console.log("Ice cadidate function start");
       if (pcRef.current && candidate) {
         pcRef.current.addIceCandidate(new RTCIceCandidate(candidate));
       }
@@ -175,7 +177,7 @@ export default function App() {
       pcRef.current?.close();
       pcRef.current = null;
     };
-  }, []);
+  }, [room]);
 
   useEffect(() => {
     const setVideoRef = async () => {
@@ -188,8 +190,16 @@ export default function App() {
         // console.log(stream);
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
-          setAudioActive(false);
+          if (
+            videoRef.current &&
+            videoRef.current.srcObject instanceof MediaStream
+          ) {
+            // const audioTrack = videoRef.current.srcObject.getAudioTracks()[0];
+            // audioTrack.enabled = false;
+            setAudioActive(false);
+          }
           setCameraActive(true);
+          setAudioActive(false);
         }
       } catch (error) {
         console.log(error);
@@ -212,8 +222,7 @@ export default function App() {
   return (
     <>
       <div className="relative bg-gray-600 h-screen w-screen flex items-center justify-center overflow-x-hidden">
-      <SetupScreen setId={setid} setRoom={setRoom} /> 
-
+        <SetupScreen setId={setid} setRoom={setRoom} />
         {/* <button className="bg-green-500 px-1">iniciar conexion</button> */}
         <button
           onClick={() => mediaObj.pauseAudio(videoRef, setAudioActive)}
@@ -227,8 +236,8 @@ export default function App() {
         >
           {cameraActive ? "Pausar" : "Iniciar"} camara
         </button>
-        {/* <Videos localRef={videoRef} remoteRef={remoteVideoRef} /> */}
-        <video
+        <Videos localRef={videoRef} remoteRef={remoteVideoRef} />
+        {/* <video
           ref={videoRef}
           autoPlay
           playsInline
@@ -244,10 +253,11 @@ export default function App() {
           width="200"
           height="100"
           className="border border-black rounded-2xl"
-        />
+        /> */}
         <div className="bg-green-300">
           <button
             onClick={() => {
+              console.log(room);
               socket.emit("join-room", { room: room, userId: id });
             }}
             className="bg-red-400 w-40 h-12"
