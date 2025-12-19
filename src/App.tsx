@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { socket } from "./socket";
 import { mediaObj } from "./utils";
+import { Videos } from "./components/Videos";
 export default function App() {
   const [room, setRoom] = useState<string>("room1");
   const [id, setid] = useState<string>(
@@ -231,7 +232,8 @@ export default function App() {
         >
           {cameraActive ? "Pausar" : "Iniciar"} camara
         </button>
-        <video
+        <Videos localRef={videoRef} remoteRef={remoteVideoRef}/>
+        {/* <video
           ref={videoRef}
           autoPlay
           playsInline
@@ -247,7 +249,7 @@ export default function App() {
           width="200"
           height="100"
           className="border border-black rounded-2xl"
-        />
+        /> */}
         <div className="bg-green-300">
           <input
             className="bg-green-700"
