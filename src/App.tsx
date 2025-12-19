@@ -92,6 +92,7 @@ export default function App() {
     };
 
     const offerFn = async ({ offer, from }: { offer: any; from: any }) => {
+      console.log("offer recieved")
       if (!pcRef.current) {
         pcRef.current = new RTCPeerConnection(config);
       }
@@ -154,6 +155,7 @@ export default function App() {
     };
 
     const iceCandidateFn = ({ candidate }: { candidate: any }) => {
+      console.log("Ice cadidate function start")
       if (pcRef.current && candidate) {
         pcRef.current.addIceCandidate(new RTCIceCandidate(candidate));
       }
@@ -207,7 +209,6 @@ export default function App() {
       }
     };
   }, []);
-console.log({room,id})
   return (
     <>
       <div className="relative bg-gray-600 h-screen w-screen flex items-center justify-center overflow-x-hidden">
@@ -226,8 +227,24 @@ console.log({room,id})
         >
           {cameraActive ? "Pausar" : "Iniciar"} camara
         </button>
-        <Videos localRef={videoRef} remoteRef={remoteVideoRef} />
-      
+        {/* <Videos localRef={videoRef} remoteRef={remoteVideoRef} /> */}
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          width="200"
+          muted
+          height="100"
+          className="border border-black rounded-2xl"
+        />{" "}
+        <video
+          ref={remoteVideoRef}
+          autoPlay
+          playsInline
+          width="200"
+          height="100"
+          className="border border-black rounded-2xl"
+        />
         <div className="bg-green-300">
           <button
             onClick={() => {
