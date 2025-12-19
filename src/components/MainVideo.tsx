@@ -1,18 +1,14 @@
 import { useEffect, type RefObject } from "react";
-import { MainVideo } from "./MainVideo";
 
-export const Videos = ({
+export const MainVideo = ({
   localRef,
-  remoteRef,
 }: {
   localRef: RefObject<HTMLVideoElement | null>;
-  remoteRef: RefObject<HTMLVideoElement | null>;
 }) => {
-  
   useEffect(() => {
     if (
-      !remoteRef.current ||
-      !(remoteRef.current.srcObject instanceof MediaStream)
+      !localRef.current ||
+      !(localRef.current.srcObject instanceof MediaStream)
     ) {
       return;
     }
@@ -22,7 +18,7 @@ export const Videos = ({
     analyzer.fftSize = 512;
 
     const localSource = audioContext.createMediaStreamSource(
-      remoteRef.current.srcObject
+      localRef.current.srcObject
     );
     localSource.connect(analyzer);
 
@@ -39,7 +35,7 @@ export const Videos = ({
       }
 
       const volume = sum / dataArray.length;
-      const videoTag = document.getElementById("remote-video");
+      const videoTag = document.getElementById("local-video");
 
       if (volume > 20) {
         videoTag?.style.setProperty("box-shadow", "0px 0px 4px 3px green");
@@ -63,22 +59,18 @@ export const Videos = ({
       analyzer.disconnect();
       audioContext.close();
     };
-  }, [remoteRef.current?.srcObject]);
-
+  }, [localRef.current?.srcObject]);
   return (
-    <>
-      <div>
-       <MainVideo localRef={localRef}/>
-        <video
-          id="remote-video"
-          ref={remoteRef}
-          autoPlay
-          playsInline
-          width="200"
-          height="100"
-          className="rounded-2xl border-4 transition-all duration-400"
-        />
-      </div>
-    </>
+    <video
+      id="local-video"
+      ref={localRef}
+      autoPlay
+      playsInline
+      width="200"
+      muted
+      height="100"
+      className="rounded-2xl border-4 transition-all duration-400"
+      //   style={{"boxShadow":"0px 0px 3px 3px green"}}
+    />
   );
 };

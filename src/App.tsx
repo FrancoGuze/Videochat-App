@@ -237,23 +237,7 @@ export default function App() {
           {cameraActive ? "Pausar" : "Iniciar"} camara
         </button>
         <Videos localRef={videoRef} remoteRef={remoteVideoRef} />
-        {/* <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          width="200"
-          muted
-          height="100"
-          className="border border-black rounded-2xl"
-        />{" "}
-        <video
-          ref={remoteVideoRef}
-          autoPlay
-          playsInline
-          width="200"
-          height="100"
-          className="border border-black rounded-2xl"
-        /> */}
+      
         <div className="bg-green-300">
           <button
             onClick={() => {
