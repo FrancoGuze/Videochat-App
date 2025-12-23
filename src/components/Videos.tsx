@@ -1,83 +1,45 @@
 import { useEffect, type RefObject } from "react";
 import { MainVideo } from "./MainVideo";
+import { RemoteVideo } from "./RemoteVideo";
+import type { MediaState } from "../utils";
 
 export const Videos = ({
   localRef,
-  remoteRef,
+  localMediaState,
+  remoteMediaStates,
+  remoteStreams,
+  userids,
+  room,
 }: {
   localRef: RefObject<HTMLVideoElement | null>;
-  remoteRef: RefObject<HTMLVideoElement | null>;
+  localMediaState: { [key: string]: boolean };
+  remoteMediaStates: { [user: string]: MediaState };
+  remoteStreams: RefObject<Map<string, MediaStream>>;
+  userids: string[];
+  room: string;
 }) => {
-  
-  useEffect(() => {
-    if (
-      !remoteRef.current ||
-      !(remoteRef.current.srcObject instanceof MediaStream)
-    ) {
-      return;
-    }
-
-    const audioContext = new AudioContext();
-    const analyzer = audioContext.createAnalyser();
-    analyzer.fftSize = 512;
-
-    const localSource = audioContext.createMediaStreamSource(
-      remoteRef.current.srcObject
-    );
-    localSource.connect(analyzer);
-
-    const dataArray = new Uint8Array(analyzer.frequencyBinCount);
-
-    let rafId = 0;
-
-    const analyze = () => {
-      analyzer.getByteFrequencyData(dataArray);
-
-      let sum = 0;
-      for (let i = 0; i < dataArray.length; i++) {
-        sum += dataArray[i];
-      }
-
-      const volume = sum / dataArray.length;
-      const videoTag = document.getElementById("remote-video");
-
-      if (volume > 20) {
-        videoTag?.style.setProperty("box-shadow", "0px 0px 4px 3px green");
-        videoTag?.style.setProperty("border-color", "green");
-      } else {
-        videoTag?.style.setProperty(
-          "box-shadow",
-          "0px 0px 4px 3px transparent"
-        );
-        videoTag?.style.setProperty("border-color", "black");
-      }
-
-      rafId = requestAnimationFrame(analyze);
-    };
-
-    analyze();
-
-    return () => {
-      cancelAnimationFrame(rafId);
-      localSource.disconnect();
-      analyzer.disconnect();
-      audioContext.close();
-    };
-  }, [remoteRef.current?.srcObject]);
 
   return (
     <>
-      <div>
-       <MainVideo localRef={localRef}/>
-        <video
-          id="remote-video"
-          ref={remoteRef}
-          autoPlay
-          playsInline
-          width="200"
-          height="100"
-          className="rounded-2xl border-4 transition-all duration-400"
-        />
+      <div className="flex flex-row">
+        <MainVideo localRef={localRef} localMediaState={localMediaState} />
+        {userids.map((user) => {
+          const userStream = remoteStreams.current.get(user);
+          console.log(userids,userStream)
+          if (!userStream) return;
+          console.log(remoteMediaStates[user]);
+          return (
+            <RemoteVideo
+              key={user}
+              user={user}
+              stream={userStream}
+              remoteMediaStates={
+                remoteMediaStates[user] ?? { audio: true, video: false }
+              }
+              room={room}
+            />
+          );
+        })}
       </div>
     </>
   );

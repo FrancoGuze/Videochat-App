@@ -1,1 +1,63 @@
-@import 'tailwindcss';
+@import "tailwindcss";
+
+@theme {
+  --color-porcelain-50: #eeffe5;
+  --color-porcelain-100: #ddffcc;
+  --color-porcelain-200: #bbff99;
+  --color-porcelain-300: #99ff66;
+  --color-porcelain-400: #77ff33;
+  --color-porcelain-500: #55ff00;
+  --color-porcelain-600: #44cc00;
+  --color-porcelain-700: #339900;
+  --color-porcelain-800: #226600;
+  --color-porcelain-900: #113300;
+  --color-porcelain-950: #0c2400;
+
+  --color-baltic-blue-50: #ebf3fa;
+  --color-baltic-blue-100: #d6e6f5;
+  --color-baltic-blue-200: #aecdea;
+  --color-baltic-blue-300: #85b4e0;
+  --color-baltic-blue-400: #5d9bd5;
+  --color-baltic-blue-500: #3482cb;
+  --color-baltic-blue-600: #2a68a2;
+  --color-baltic-blue-700: #1f4e7a;
+  --color-baltic-blue-800: #153451;
+  --color-baltic-blue-900: #0a1a29;
+  --color-baltic-blue-950: #07121c;
+
+  --color-flag-red-50: #fbeaeb;
+  --color-flag-red-100: #f6d5d6;
+  --color-flag-red-200: #edabad;
+  --color-flag-red-300: #e48184;
+  --color-flag-red-400: #db575b;
+  --color-flag-red-500: #d22d32;
+  --color-flag-red-600: #a82428;
+  --color-flag-red-700: #7e1b1e;
+  --color-flag-red-800: #541214;
+  --color-flag-red-900: #2a090a;
+  --color-flag-red-950: #1d0607;
+
+  --color-bright-gold-50: #fffbe6;
+  --color-bright-gold-100: #fef8cd;
+  --color-bright-gold-200: #fef19a;
+  --color-bright-gold-300: #fde968;
+  --color-bright-gold-400: #fde235;
+  --color-bright-gold-500: #fcdb03;
+  --color-bright-gold-600: #caaf02;
+  --color-bright-gold-700: #978302;
+  --color-bright-gold-800: #655801;
+  --color-bright-gold-900: #322c01;
+  --color-bright-gold-950: #231f00;
+
+  --color-shadow-grey-50: #eff0f5;
+  --color-shadow-grey-100: #dfe2ec;
+  --color-shadow-grey-200: #bfc4d9;
+  --color-shadow-grey-300: #9fa7c6;
+  --color-shadow-grey-400: #808ab3;
+  --color-shadow-grey-500: #606c9f;
+  --color-shadow-grey-600: #4d5780;
+  --color-shadow-grey-700: #394160;
+  --color-shadow-grey-800: #262b40;
+  --color-shadow-grey-900: #131620;
+  --color-shadow-grey-950: #0d0f16;
+}

@@ -1,4 +1,5 @@
 import {
+  useEffect,
   useState,
   type Dispatch,
   type FormEvent,
@@ -15,9 +16,9 @@ export const SetupScreen = ({
   const [thisid, setThisId] = useState<string>(
     `User${Math.round(Math.random() * 900)}`
   );
-  const [thisRoom, setThisRoom] = useState<string>("");
+  const [thisRoom, setThisRoom] = useState<string>("123");
 
-  const [show,setShow] = useState<boolean>(true)
+  const [show, setShow] = useState<boolean>(true);
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (thisid === "") {
@@ -46,13 +47,15 @@ export const SetupScreen = ({
     } else {
       setId(thisid);
       setRoom(thisRoom);
-      setShow(false)
+      setShow(false);
     }
   };
   return (
     <form
       onSubmit={handleSubmit}
-      className={`absolute inset-0 w-screen h-screen bg-cyan-600 ${show ? "left-0":"left-full"} transition-all duration-600`}
+      className={`absolute inset-0 w-screen h-screen bg-cyan-600 ${
+        show ? "left-0" : "left-full"
+      } transition-all duration-600`}
     >
       <h1>Hi! Welcome to my video chat app!</h1>
       <label htmlFor="user-id">Please, insert a good name for you!</label>
