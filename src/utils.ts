@@ -24,13 +24,14 @@ export const mediaObj = {
         ...media,
         audio: audio.enabled,
       };
+      console.log("New local-mmedia: ", newState);
       mediaSetter(newState);
 
-      console.log("Props needed to notify", {
-        room,
-        user,
-        audio: audio.enabled,
-      });
+      // console.log("Props needed to notify", {
+      //   room,
+      //   user,
+      //   audio: audio.enabled,
+      // });
       if (room && user) {
         socket.emit("media-update", { room, user, state: newState });
       }
@@ -53,14 +54,15 @@ export const mediaObj = {
         ...media,
         video: video.enabled,
       };
+      console.log("New local-mmedia: ", newState);
 
       mediaSetter(newState);
 
-      console.log("Props needed to notify", {
-        room,
-        user,
-        newState,
-      });
+      // console.log("Props needed to notify", {
+      //   room,
+      //   user,
+      //   newState,
+      // });
       if (room && user) {
         socket.emit("media-update", { room, user, state: newState });
       }

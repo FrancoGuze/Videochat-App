@@ -1,5 +1,4 @@
 import {
-  useEffect,
   useState,
   type Dispatch,
   type FormEvent,
@@ -13,10 +12,9 @@ export const SetupScreen = ({
   setId: Dispatch<SetStateAction<string>>;
   setRoom: Dispatch<SetStateAction<string>>;
 }) => {
-  const [thisid, setThisId] = useState<string>(
-    `User${Math.round(Math.random() * 900)}`
-  );
-  const [thisRoom, setThisRoom] = useState<string>("123");
+  const [thisid, setThisId] = useState<string>("");
+  // `User${Math.round(Math.random() * 900)}`
+  const [thisRoom, setThisRoom] = useState<string>("");
 
   const [show, setShow] = useState<boolean>(true);
   const handleSubmit = async (e: FormEvent) => {
@@ -53,32 +51,60 @@ export const SetupScreen = ({
   return (
     <form
       onSubmit={handleSubmit}
-      className={`absolute inset-0 w-screen h-screen bg-cyan-600 ${
+      className={`absolute group inset-0 w-screen h-screen bg-shadow-grey-600 flex flex-col items-center justify-center gap-10 z-40 ${
         show ? "left-0" : "left-full"
       } transition-all duration-600`}
     >
-      <h1>Hi! Welcome to my video chat app!</h1>
-      <label htmlFor="user-id">Please, insert a good name for you!</label>
+      <h1 className="text-3xl font-semibold">Video Chat App</h1>
+      <div className="bg-white min-w-1/2 px-4 py-3 rounded-xl">
+        <p className="text-gray-600">
+          Please, fill the following fields to use the app
+        </p>
 
-      <input
-        type="text"
-        name="user-id"
-        id="user-id"
-        required
-        value={thisid}
-        onChange={(e) => setThisId(e.target.value)}
-      />
-      <label htmlFor="room-id">And you also have to add a room id!</label>
-      <input
-        id="room-id"
-        name="room-id"
-        className="bg-green-700"
-        type="text"
-        required
-        value={thisRoom}
-        onChange={(e) => setThisRoom(e.target.value)}
-      />
-      <button type="submit">Submit</button>
+        <div className="relative my-4 px-1">
+          <input
+            className="peer px-1.5  h-10 w-full border-2 rounded-lg text-baltic-blue-900 border-baltic-blue-700 placeholder-shown:border-gray-300 focus:text-baltic-blue-700 focus:border-baltic-blue-500 outline-0"
+            type="text"
+            name="user-id"
+            id="user-id"
+            required
+            placeholder=""
+            value={thisid}
+            onChange={(e) => setThisId(e.target.value)}
+          />
+          <label
+            className="absolute bg-white text-baltic-blue-700 rounded-lg px-1 peer-focus:text-baltic-blue-500 peer-placeholder-shown:text-gray-500 peer-placeholder-shown:top-2 peer-placeholder-shown:text-base text-sm -top-3 left-3.5 transition-all duration-75"
+            htmlFor="user-id"
+          >
+            Username
+          </label>
+        </div>
+
+        <div className="relative my-4 px-1">
+          <input
+            id="room-id"
+            name="room-id"
+            className="peer px-1.5  h-10 w-full border-2 rounded-lg text-baltic-blue-900 border-baltic-blue-700 placeholder-shown:border-gray-300 focus:text-baltic-blue-700 focus:border-baltic-blue-500 outline-0"
+            placeholder=""
+            type="text"
+            required
+            value={thisRoom}
+            onChange={(e) => setThisRoom(e.target.value)}
+          />{" "}
+          <label
+            htmlFor="room-id"
+            className="absolute bg-white text-baltic-blue-700 rounded-lg px-1 peer-focus:text-baltic-blue-500 peer-placeholder-shown:text-gray-500 peer-placeholder-shown:top-2 peer-placeholder-shown:text-base text-sm -top-3 left-3.5 transition-all duration-75"
+          >
+            Room
+          </label>
+        </div>
+        <button
+          type="submit"
+          className="bg-gray-400 px-2.5 py-0.5 rounded-lg group-valid:bg-baltic-blue-300 group-valid:text-baltic-blue-800 group-valid:hover:bg-baltic-blue-200 group-invalid:bg-gray-200 group-invalid:text-gray-300 group-invalid:cursor-auto group-valid:cursor-pointer"
+        >
+          Submit
+        </button>
+      </div>
     </form>
   );
 };

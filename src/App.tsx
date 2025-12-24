@@ -5,27 +5,39 @@ import { Videos } from "./components/Videos";
 import { SetupScreen } from "./components/SetupScreen";
 
 export default function App() {
-  const [room, setRoom] = useState<string>("");
+ const [room, setRoom] = useState<string>("");
   const [id, setid] = useState<string>("");
 
   const [localMediaState, setLocalMediaState] = useState<MediaState>({
     audio: true,
     video: true,
   });
-  const [remoteMediaStates, setRemoteMediaStates] = useState<
-    Record<string, MediaState>
-  >({});
+
+  const [remoteMediaStates, setRemoteMediaStates] =
+    useState<Record<string, MediaState>>({});
+
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   const peerConnections = useRef<Map<string, RTCPeerConnection>>(new Map());
   const remoteStreams = useRef<Map<string, MediaStream>>(new Map());
   const [usersIds, setUsersIds] = useState<string[]>([]);
 
+  // ⭐ REF QUE CONTIENE EL ESTADO REAL SIEMPRE
+  const localMediaStateRef = useRef<MediaState>({
+    audio: true,
+    video: true,
+  });
+
+  // ⭐ SINCRONIZAR EL REF CON EL STATE
+  useEffect(() => {
+    localMediaStateRef.current = localMediaState;
+  }, [localMediaState]);
+
   useEffect(() => {
     if (room && id && socket) {
-      console.log("Listo para ingresar a sala");
-      socket.emit("join-room", { room: room, userId: id });
+      socket.emit("join-room", { room, userId: id });
     }
+
     const userJoinedFn = async ({
       userId,
       socketId,
@@ -33,73 +45,62 @@ export default function App() {
       userId: string;
       socketId: string;
     }) => {
-      console.log("User joined", userId);
       if (userId === id) return;
+      if (!(videoRef.current?.srcObject instanceof MediaStream)) return;
 
-      if (
-        videoRef.current &&
-        videoRef.current.srcObject instanceof MediaStream
-      ) {
-        const pc = new RTCPeerConnection(mediaObj.config);
-        peerConnections.current.set(userId, pc);
-        // 👉 crear PC
-        if (!pc) {
-          console.log("No se encontro PC", { pc, location: "userJoinedFn" });
-          return;
+      const pc = new RTCPeerConnection(mediaObj.config);
+      peerConnections.current.set(userId, pc);
+
+      pc.onicecandidate = (e) => {
+        if (e.candidate) {
+          socket.emit("ice-candidate", {
+            room,
+            candidate: e.candidate,
+            from: id,
+            to: userId,
+          });
         }
-        // ✅ ICE DESDE EL INICIO
-        pc.onicecandidate = (e) => {
-          if (e.candidate) {
-            socket.emit("ice-candidate", {
-              room,
-              candidate: e.candidate,
-              from: id,
-              to: userId,
-            });
-          }
-        };
+      };
 
-        // ✅ recibir tracks remotos
-        pc.ontrack = (event) => {
-          remoteStreams.current.set(userId, event.streams[0]);
-          setUsersIds((prev) =>
-            prev.includes(userId) ? prev : [...prev, userId]
-          );
-        };
-        pc.onconnectionstatechange = () => {
-          if (pc.connectionState === "connected") {
-            socket.emit("media-update", {
-              room,
-              user: id,
-              state: localMediaState,
-            });
-          }
-        };
-        // 👉 agregar tracks locales
-        const stream = videoRef.current.srcObject;
-        stream.getTracks().forEach((track) => {
-          pc.addTrack(track, stream);
-        });
+      pc.ontrack = (event) => {
+        remoteStreams.current.set(userId, event.streams[0]);
+        setUsersIds((prev) =>
+          prev.includes(userId) ? prev : [...prev, userId]
+        );
+      };
 
-        // 👉 offer
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-        console.log("prev emit");
-        console.log({ room, offer });
-        socket.emit("offer", { room, offer, from: id, to: socketId });
-      }
+      // ⭐ USAR EL REF (NO localMediaState)
+      pc.onconnectionstatechange = () => {
+        if (pc.connectionState === "connected") {
+          socket.emit("media-update", {
+            room,
+            user: id,
+            state: localMediaStateRef.current,
+          });
+        }
+      };
+
+      const stream = videoRef.current.srcObject;
+      stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+
+      socket.emit("offer", {
+        room,
+        offer,
+        from: id,
+        to: socketId,
+      });
     };
 
-    const offerFn = async ({ offer, from }: { offer: any; from: any }) => {
-      console.log("offer recieved");
-      console.log("offer from: ", from);
+    const offerFn = async ({ offer, from }: { offer: any; from: string }) => {
       let pc = peerConnections.current.get(from);
       if (!pc) {
         pc = new RTCPeerConnection(mediaObj.config);
         peerConnections.current.set(from, pc);
       }
 
-      // ✅ ICE DESDE EL INICIO
       pc.onicecandidate = (e) => {
         if (e.candidate) {
           socket.emit("ice-candidate", {
@@ -111,30 +112,27 @@ export default function App() {
         }
       };
 
-      // ✅ recibir tracks remotos
       pc.ontrack = (event) => {
         remoteStreams.current.set(from, event.streams[0]);
         setUsersIds((prev) => (prev.includes(from) ? prev : [...prev, from]));
       };
+
+      // ⭐ USAR EL REF TAMBIÉN ACÁ
       pc.onconnectionstatechange = () => {
         if (pc.connectionState === "connected") {
           socket.emit("media-update", {
             room,
             user: id,
-            state: localMediaState,
+            state: localMediaStateRef.current,
           });
         }
       };
 
-      // 👉 tracks locales
       const stream = videoRef.current?.srcObject;
-      if (!stream || !(stream instanceof MediaStream)) return;
+      if (!(stream instanceof MediaStream)) return;
 
-      stream.getTracks().forEach((track) => {
-        pc.addTrack(track, stream);
-      });
+      stream.getTracks().forEach((track) => pc.addTrack(track, stream));
 
-      // 👉 SDP
       await pc.setRemoteDescription(new RTCSessionDescription(offer));
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
@@ -142,8 +140,8 @@ export default function App() {
       socket.emit("answer", {
         room,
         answer,
-        to: from,
         from: id,
+        to: from,
       });
     };
 
@@ -154,13 +152,8 @@ export default function App() {
       answer: any;
       from: string;
     }) => {
-      console.log("Answer received from:", from);
       const pc = peerConnections.current.get(from);
-      if (!pc) {
-        console.log("No se encontro PC", { pc, location: "answerFn" });
-        return;
-      }
-
+      if (!pc) return;
       await pc.setRemoteDescription(new RTCSessionDescription(answer));
     };
 
@@ -171,18 +164,18 @@ export default function App() {
       from: string;
       candidate: any;
     }) => {
-      console.log("Ice cadidate function start");
       const pc = peerConnections.current.get(from);
       if (pc && candidate) {
         pc.addIceCandidate(new RTCIceCandidate(candidate));
       }
     };
-    const removeuserFn = async ({ user }: { user: string }) => {
-      console.log("remove user fn start: ", user);
+
+    const removeuserFn = ({ user }: { user: string }) => {
       peerConnections.current.delete(user);
       remoteStreams.current.delete(user);
       setUsersIds((prev) => prev.filter((id) => id !== user));
     };
+
     const mediaUpdateFn = ({
       user,
       state,
@@ -191,15 +184,15 @@ export default function App() {
       state: MediaState;
     }) => {
       if (user === id) return;
-      console.log("ACA: ", { state });
       setRemoteMediaStates((prev) => ({
         ...prev,
         [user]: {
-          audio: state.audio ?? prev[user]?.audio ?? true,
-          video: state.video ?? prev[user]?.video ?? true,
+          audio: state.audio ?? prev[user]?.audio,
+          video: state.video ?? prev[user]?.video,
         },
       }));
     };
+
     socket.on("user-joined", userJoinedFn);
     socket.on("offer", offerFn);
     socket.on("answer", answerFn);
@@ -215,10 +208,10 @@ export default function App() {
       socket.off("remove-user", removeuserFn);
       socket.off("media-update", mediaUpdateFn);
 
-      setUsersIds([]);
-      peerConnections.current.forEach((con) => con.close());
+      peerConnections.current.forEach((pc) => pc.close());
       peerConnections.current.clear();
       remoteStreams.current.clear();
+      setUsersIds([]);
     };
   }, [room]);
   // useEffect local para setear los MediaStreamtracks
@@ -265,9 +258,9 @@ export default function App() {
       }
     };
   }, []);
-  // useEffect(() => {
-  //   console.log("App.tsx: ", { remoteMediaStates,localMediaState });
-  // }, [remoteMediaStates,localMediaState]);
+  useEffect(() => {
+    console.log("App.tsx: ", { localMediaState });
+  }, [localMediaState]);
   return (
     <>
       <div className="relative bg-shadow-grey-900 h-screen w-screen flex items-center justify-center overflow-x-hidden">
@@ -282,7 +275,6 @@ export default function App() {
           remoteMediaStates={remoteMediaStates}
           remoteStreams={remoteStreams}
           userids={usersIds}
-          room={room}
         />
 
         {/* <div className="bg-green-300">
