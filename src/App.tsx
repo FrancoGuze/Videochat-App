@@ -1,274 +1,77 @@
-import { useEffect, useRef, useState } from "react";
-import { socket } from "./socket";
-import { mediaObj, type MediaState } from "./utils";
+import { useEffect, useState } from "react";
+import { useLocalMedia } from "./hooks/useLocalMedia";
+import { useMediaControls } from "./hooks/useMediaControls";
+import { useWebRTC } from "./hooks/useWebRTC";
 import { Videos } from "./components/Videos";
 import { SetupScreen } from "./components/SetupScreen";
 
 export default function App() {
- const [room, setRoom] = useState<string>("");
-  const [id, setid] = useState<string>("");
+  const [room, setRoom] = useState<string>("");
+  const [id, setId] = useState<string>("");
 
-  const [localMediaState, setLocalMediaState] = useState<MediaState>({
-    audio: true,
-    video: true,
+  const { videoRef, localMediaState, setLocalMediaState } = useLocalMedia();
+  const { remoteMediaStates, remoteStreams, usersIds } = useWebRTC({
+    room,
+    userId: id,
+    videoRef,
+    localMediaState,
+  });
+  const { toggleAudio, toggleVideo } = useMediaControls({
+    videoRef,
+    localMediaState,
+    setLocalMediaState,
+    room,
+    userId: id,
   });
 
-  const [remoteMediaStates, setRemoteMediaStates] =
-    useState<Record<string, MediaState>>({});
-
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-
-  const peerConnections = useRef<Map<string, RTCPeerConnection>>(new Map());
-  const remoteStreams = useRef<Map<string, MediaStream>>(new Map());
-  const [usersIds, setUsersIds] = useState<string[]>([]);
-
-  // ⭐ REF QUE CONTIENE EL ESTADO REAL SIEMPRE
-  const localMediaStateRef = useRef<MediaState>({
-    audio: true,
-    video: true,
-  });
-
-  // ⭐ SINCRONIZAR EL REF CON EL STATE
-  useEffect(() => {
-    localMediaStateRef.current = localMediaState;
-  }, [localMediaState]);
-
-  useEffect(() => {
-    if (room && id && socket) {
-      socket.emit("join-room", { room, userId: id });
-    }
-
-    const userJoinedFn = async ({
-      userId,
-      socketId,
-    }: {
-      userId: string;
-      socketId: string;
-    }) => {
-      if (userId === id) return;
-      if (!(videoRef.current?.srcObject instanceof MediaStream)) return;
-
-      const pc = new RTCPeerConnection(mediaObj.config);
-      peerConnections.current.set(userId, pc);
-
-      pc.onicecandidate = (e) => {
-        if (e.candidate) {
-          socket.emit("ice-candidate", {
-            room,
-            candidate: e.candidate,
-            from: id,
-            to: userId,
-          });
-        }
-      };
-
-      pc.ontrack = (event) => {
-        remoteStreams.current.set(userId, event.streams[0]);
-        setUsersIds((prev) =>
-          prev.includes(userId) ? prev : [...prev, userId]
-        );
-      };
-
-      // ⭐ USAR EL REF (NO localMediaState)
-      pc.onconnectionstatechange = () => {
-        if (pc.connectionState === "connected") {
-          socket.emit("media-update", {
-            room,
-            user: id,
-            state: localMediaStateRef.current,
-          });
-        }
-      };
-
-      const stream = videoRef.current.srcObject;
-      stream.getTracks().forEach((track) => pc.addTrack(track, stream));
-
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-
-      socket.emit("offer", {
-        room,
-        offer,
-        from: id,
-        to: socketId,
-      });
-    };
-
-    const offerFn = async ({ offer, from }: { offer: any; from: string }) => {
-      let pc = peerConnections.current.get(from);
-      if (!pc) {
-        pc = new RTCPeerConnection(mediaObj.config);
-        peerConnections.current.set(from, pc);
-      }
-
-      pc.onicecandidate = (e) => {
-        if (e.candidate) {
-          socket.emit("ice-candidate", {
-            room,
-            candidate: e.candidate,
-            from: id,
-            to: from,
-          });
-        }
-      };
-
-      pc.ontrack = (event) => {
-        remoteStreams.current.set(from, event.streams[0]);
-        setUsersIds((prev) => (prev.includes(from) ? prev : [...prev, from]));
-      };
-
-      // ⭐ USAR EL REF TAMBIÉN ACÁ
-      pc.onconnectionstatechange = () => {
-        if (pc.connectionState === "connected") {
-          socket.emit("media-update", {
-            room,
-            user: id,
-            state: localMediaStateRef.current,
-          });
-        }
-      };
-
-      const stream = videoRef.current?.srcObject;
-      if (!(stream instanceof MediaStream)) return;
-
-      stream.getTracks().forEach((track) => pc.addTrack(track, stream));
-
-      await pc.setRemoteDescription(new RTCSessionDescription(offer));
-      const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
-
-      socket.emit("answer", {
-        room,
-        answer,
-        from: id,
-        to: from,
-      });
-    };
-
-    const answerFn = async ({
-      answer,
-      from,
-    }: {
-      answer: any;
-      from: string;
-    }) => {
-      const pc = peerConnections.current.get(from);
-      if (!pc) return;
-      await pc.setRemoteDescription(new RTCSessionDescription(answer));
-    };
-
-    const iceCandidateFn = ({
-      from,
-      candidate,
-    }: {
-      from: string;
-      candidate: any;
-    }) => {
-      const pc = peerConnections.current.get(from);
-      if (pc && candidate) {
-        pc.addIceCandidate(new RTCIceCandidate(candidate));
-      }
-    };
-
-    const removeuserFn = ({ user }: { user: string }) => {
-      peerConnections.current.delete(user);
-      remoteStreams.current.delete(user);
-      setUsersIds((prev) => prev.filter((id) => id !== user));
-    };
-
-    const mediaUpdateFn = ({
-      user,
-      state,
-    }: {
-      user: string;
-      state: MediaState;
-    }) => {
-      if (user === id) return;
-      setRemoteMediaStates((prev) => ({
-        ...prev,
-        [user]: {
-          audio: state.audio ?? prev[user]?.audio,
-          video: state.video ?? prev[user]?.video,
-        },
-      }));
-    };
-
-    socket.on("user-joined", userJoinedFn);
-    socket.on("offer", offerFn);
-    socket.on("answer", answerFn);
-    socket.on("ice-candidate", iceCandidateFn);
-    socket.on("remove-user", removeuserFn);
-    socket.on("media-update", mediaUpdateFn);
-
-    return () => {
-      socket.off("user-joined", userJoinedFn);
-      socket.off("offer", offerFn);
-      socket.off("answer", answerFn);
-      socket.off("ice-candidate", iceCandidateFn);
-      socket.off("remove-user", removeuserFn);
-      socket.off("media-update", mediaUpdateFn);
-
-      peerConnections.current.forEach((pc) => pc.close());
-      peerConnections.current.clear();
-      remoteStreams.current.clear();
-      setUsersIds([]);
-    };
-  }, [room]);
-  // useEffect local para setear los MediaStreamtracks
-  useEffect(() => {
-    const setVideoRef = async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: true,
-        });
-        console.log(stream);
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          if (
-            videoRef.current &&
-            videoRef.current.srcObject instanceof MediaStream
-          ) {
-            const audioTrack = videoRef.current.srcObject.getAudioTracks()[0];
-            audioTrack.enabled = true;
-
-            const videoTrack = videoRef.current.srcObject.getVideoTracks()[0];
-            videoTrack.enabled = true;
-            setLocalMediaState({
-              audio: audioTrack.enabled,
-              video: videoTrack.enabled,
-            });
-          }
-        }
-      } catch (error) {
-        console.log(error);
-      }
-    };
-    setVideoRef();
-
-    return () => {
-      if (
-        videoRef.current &&
-        videoRef.current.srcObject instanceof MediaStream
-      ) {
-        const tracks = videoRef.current.srcObject.getTracks();
-        tracks.forEach((element) => {
-          element.stop();
-        });
-      }
-    };
-  }, []);
   useEffect(() => {
     console.log("App.tsx: ", { localMediaState });
   }, [localMediaState]);
-  return (
-    <>
-      <div className="relative bg-shadow-grey-900 h-screen w-screen flex items-center justify-center overflow-x-hidden">
-        <SetupScreen setId={setid} setRoom={setRoom} />
-        <div className="absolute top-0 bg-shadow-grey-800 border-8 border-transparent px-4 border-t-0 rounded-bl-3xl rounded-br-3xl flex flex-row items-center">
-          <p className="text-porcelain-50">Sala: {room}</p>
-        </div>
 
+  const connectionStatus =
+    room && id ? (usersIds.length > 0 ? "Connected" : "Connecting") : "Idle";
+
+  return (
+    <div className="relative min-h-screen bg-shadow-grey-950 text-porcelain-50 overflow-hidden">
+      <SetupScreen setId={setId} setRoom={setRoom} />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_10%_15%,rgba(52,130,203,0.12),transparent_50%),radial-gradient(circle_at_85%_10%,rgba(252,219,3,0.1),transparent_40%),radial-gradient(circle_at_80%_85%,rgba(210,45,50,0.1),transparent_45%)]" />
+
+      <header className="relative z-10 px-6 pt-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-2xl bg-baltic-blue-400/20 border border-baltic-blue-300/40 flex items-center justify-center text-baltic-blue-100">
+              VC
+            </div>
+            <div>
+              <p className="text-lg font-semibold">Video chat practice</p>
+              <p className="text-xs text-shadow-grey-300">
+                WebRTC + MediaStreams
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 text-xs text-shadow-grey-200">
+            <div
+              className={`px-3 py-1 rounded-full border text-xs ${
+                connectionStatus === "Connected"
+                  ? "border-porcelain-400/50 bg-porcelain-400/10 text-porcelain-50"
+                  : connectionStatus === "Connecting"
+                  ? "border-bright-gold-400/40 bg-bright-gold-400/10 text-bright-gold-100"
+                  : "border-shadow-grey-700 bg-shadow-grey-900/60 text-shadow-grey-300"
+              }`}
+            >
+              {connectionStatus}
+            </div>
+            <div className="px-3 py-1 rounded-full border border-shadow-grey-700 bg-shadow-grey-900/60">
+              Room: {room || "-"}
+            </div>
+            <div className="px-3 py-1 rounded-full border border-shadow-grey-700 bg-shadow-grey-900/60">
+              You: {id || "-"}
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main className="relative z-10">
         <Videos
           localRef={videoRef}
           localMediaState={localMediaState}
@@ -276,42 +79,24 @@ export default function App() {
           remoteStreams={remoteStreams}
           userids={usersIds}
         />
+      </main>
 
-        {/* <div className="bg-green-300">
+      <div className="fixed bottom-6 left-0 right-0 z-10 flex items-center justify-center px-6">
+        <div className="flex items-center gap-3 rounded-2xl border border-shadow-grey-700 bg-shadow-grey-900/80 px-4 py-3 backdrop-blur">
           <button
-            onClick={() => {
-              console.log(room);
-              socket.emit("join-room", { room: room, userId: id });
-            }}
-            className="bg-red-400 w-40 h-12"
-          >
-            Join room
-          </button>
-        </div> */}
-
-        <div className="absolute bottom-0 bg-shadow-grey-800 pb-1.5 border-8 border-transparent px-4 border-b-0 rounded-tl-3xl rounded-tr-3xl flex flex-row items-center gap-3">
-          <button
-            className={`${
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors duration-150 ${
               localMediaState.audio
-                ? " bg-shadow-grey-700 hover:bg-gray-600"
-                : "bg-red-500/40 hover:bg-flag-red-500/70"
-            } transition-colors duration-75 p-1 rounded-lg group`}
-            onClick={() =>
-              mediaObj.pauseAudio(
-                videoRef,
-                localMediaState,
-                setLocalMediaState,
-                room,
-                id
-              )
-            }
+                ? "bg-shadow-grey-800 hover:bg-shadow-grey-700 text-porcelain-50"
+                : "bg-flag-red-500/70 hover:bg-flag-red-500 text-shadow-grey-950"
+            }`}
+            onClick={toggleAudio}
           >
             <svg
-              className={`w-8 h-8  p-1 rounded-lg ${
-                localMediaState.video
-                  ? "fill-shadow-grey-300 group-hover:fill-shadow-grey-100"
-                  : "fill-shadow-grey-900 group-hover:fill-shadow-grey-800"
-              } transition-colors duration-75`}
+              className={`w-5 h-5 ${
+                localMediaState.audio
+                  ? "fill-porcelain-50"
+                  : "fill-shadow-grey-900"
+              }`}
               xmlns="http://www.w3.org/2000/svg"
               viewBox="0 0 640 640"
             >
@@ -321,29 +106,22 @@ export default function App() {
                 <path d="M533.6 96.5C523.3 88.1 508.2 89.7 499.8 100C491.4 110.3 493 125.4 503.3 133.8C557.5 177.8 592 244.8 592 320C592 395.2 557.5 462.2 503.3 506.3C493 514.7 491.5 529.8 499.8 540.1C508.1 550.4 523.3 551.9 533.6 543.6C598.5 490.7 640 410.2 640 320C640 229.8 598.5 149.2 533.6 96.5zM473.1 171C462.8 162.6 447.7 164.2 439.3 174.5C430.9 184.8 432.5 199.9 442.8 208.3C475.3 234.7 496 274.9 496 320C496 365.1 475.3 405.3 442.8 431.8C432.5 440.2 431 455.3 439.3 465.6C447.6 475.9 462.8 477.4 473.1 469.1C516.3 433.9 544 380.2 544 320.1C544 260 516.3 206.3 473.1 171.1zM412.6 245.5C402.3 237.1 387.2 238.7 378.8 249C370.4 259.3 372 274.4 382.3 282.8C393.1 291.6 400 305 400 320C400 335 393.1 348.4 382.3 357.3C372 365.7 370.5 380.8 378.8 391.1C387.1 401.4 402.3 402.9 412.6 394.6C434.1 376.9 448 350.1 448 320C448 289.9 434.1 263.1 412.6 245.5zM80 416L128 416L262.1 535.2C268.5 540.9 276.7 544 285.2 544C304.4 544 320 528.4 320 509.2L320 130.8C320 111.6 304.4 96 285.2 96C276.7 96 268.5 99.1 262.1 104.8L128 224L80 224C53.5 224 32 245.5 32 272L32 368C32 394.5 53.5 416 80 416z" />
               )}
             </svg>
+            {localMediaState.audio ? "Mute" : "Unmute"}
           </button>
           <button
-            className={`${
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors duration-150 ${
               localMediaState.video
-                ? " bg-shadow-grey-700 hover:bg-gray-600"
-                : "bg-red-500/40 hover:bg-flag-red-500/70"
-            } transition-colors duration-75 p-1 rounded-lg group`}
-            onClick={() =>
-              mediaObj.pauseVideo(
-                videoRef,
-                localMediaState,
-                setLocalMediaState,
-                room,
-                id
-              )
-            }
+                ? "bg-shadow-grey-800 hover:bg-shadow-grey-700 text-porcelain-50"
+                : "bg-flag-red-500/70 hover:bg-flag-red-500 text-shadow-grey-950"
+            }`}
+            onClick={toggleVideo}
           >
             <svg
-              className={`w-8 h-8  p-1 rounded-lg ${
+              className={`w-5 h-5 ${
                 localMediaState.video
-                  ? "fill-shadow-grey-300 group-hover:fill-shadow-grey-100"
-                  : "fill-shadow-grey-900 group-hover:fill-shadow-grey-800"
-              } transition-colors duration-75`}
+                  ? "fill-porcelain-50"
+                  : "fill-shadow-grey-900"
+              }`}
               xmlns="http://www.w3.org/2000/svg"
               viewBox="0 0 640 640"
             >
@@ -353,38 +131,10 @@ export default function App() {
                 <path d="M128 128C92.7 128 64 156.7 64 192L64 448C64 483.3 92.7 512 128 512L384 512C419.3 512 448 483.3 448 448L448 192C448 156.7 419.3 128 384 128L128 128zM496 400L569.5 458.8C573.7 462.2 578.9 464 584.3 464C597.4 464 608 453.4 608 440.3L608 199.7C608 186.6 597.4 176 584.3 176C578.9 176 573.7 177.8 569.5 181.2L496 240L496 400z" />
               )}
             </svg>
+            {localMediaState.video ? "Stop video" : "Start video"}
           </button>
         </div>
       </div>
-    </>
+    </div>
   );
 }
-
-//  <button
-//               onClick={() =>
-//                 mediaObj.pauseAudio(
-//                   videoRef,
-//                   localMediaState,
-//                   setLocalMediaState,
-//                   room,
-//                   id
-//                 )
-//               }
-//               className="bg-green-500 px-1"
-//             >
-//               {localMediaState.audio ? "Pausar" : "Iniciar"} audio
-//             </button>
-//             <button
-//               onClick={() =>
-//                 mediaObj.pauseVideo(
-//                   videoRef,
-//                   localMediaState,
-//                   setLocalMediaState,
-//                   room,
-//                   id
-//                 )
-//               }
-//               className="bg-green-500 px-1"
-//             >
-//               {localMediaState.video ? "Pausar" : "Iniciar"} camara
-//             </button>
