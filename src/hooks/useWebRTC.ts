@@ -37,10 +37,8 @@ export const useWebRTC = ({
 
     const userJoinedFn = async ({
       userId: joinedUserId,
-      socketId,
     }: {
       userId: string;
-      socketId: string;
     }) => {
       if (joinedUserId === userId) return;
       if (!(videoRef.current?.srcObject instanceof MediaStream)) return;
@@ -86,7 +84,7 @@ export const useWebRTC = ({
         room,
         offer,
         from: userId,
-        to: socketId,
+        to: joinedUserId,
       });
     };
 
